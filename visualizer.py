@@ -29,8 +29,8 @@ class Visualizer:
         # 양봉은 빨간색으로 음봉은 파란색으로 표시
         candlestick_ohlc(ax, ohlc, colorup='r', colordown='b')
 
-    def plot(self, epoch_str=None, num_epoches=None, epsilon=None, 
-            action_list=None, actions=None, num_stocks=None, 
+    def plot(self, epoch_str=None, num_epoches=None, epsilon=None,
+            action_list=None, actions=None, num_stocks=None,
             outvals=None, exps=None, learning=None,
             initial_balance=None, pvs=None):
         x = np.arange(len(actions))  # 모든 차트가 공유할 x축 데이터
@@ -39,7 +39,7 @@ class Visualizer:
         pvs_base = np.zeros(len(actions)) + initial_balance  # 초기 자본금 배열
 
         # 차트 2. 에이전트 상태 (행동, 보유 주식 수)
-        colors = ['r', 'b']
+        colors = ['r', 'b', 'g']
         for actiontype, color in zip(action_list, colors):
             for i in x[actions == actiontype]:
                 self.axes[1].axvline(i, color=color, alpha=0.1)  # 배경 색으로 행동 표시
@@ -55,11 +55,13 @@ class Visualizer:
                 color = 'r'  # 매수면 빨간색
             elif outval.argmax() == 1:
                 color = 'b'  # 매도면 파란색
-            # 행동을 빨간색 또는 파란색 배경으로 그리기
+            elif outval.argmax() == 2:
+                color = 'g'  # HOLD 면 초록색
+            # 행동을 배경색으로 그리기
             self.axes[2].axvline(idx, color=color, alpha=0.1)
-        styles = ['.r', '.b']
+        styles = ['.r', '.b', '.g']
         for action, style in zip(action_list, styles):
-            # 정책 신경망의 출력을 빨간색, 파란색 점으로 그리기
+            # 정책 신경망의 출력을 빨간색, 파란색, 초록색 점으로 그리기
             self.axes[2].plot(x, outvals[:, action], style)
 
         # 차트 4. 포트폴리오 가치
@@ -96,6 +98,6 @@ class Visualizer:
             ax.get_xaxis().get_major_formatter().set_scientific(False)  # 과학적 표기 비활성화
             ax.get_yaxis().get_major_formatter().set_scientific(False)  # 과학적 표기 비활성화
             ax.ticklabel_format(useOffset=False)  # x축 간격을 일정하게 설정
-            
+
     def save(self, path):
         plt.savefig(path)

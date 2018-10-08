@@ -40,8 +40,8 @@ class PolicyLearner:
         self.training_data_idx = -1
 
     def fit(
-        self, num_epoches=1000, max_memory=60, balance=10000000,
-        discount_factor=0, start_epsilon=.5, learning=True):
+        self, num_epoches=1, max_memory=0, balance=0,
+        discount_factor=0, start_epsilon=0, learning=True):
         logger.info("LR: {lr}, DF: {discount_factor}, "
                     "TU: [{min_trading_unit}, {max_trading_unit}], "
                     "DRT: {delayed_reward_threshold}".format(
@@ -113,11 +113,13 @@ class PolicyLearner:
                     break
 
                 # 정책 신경망 또는 탐험에 의한 행동 결정
-                action, confidence, exploration = self.agent.decide_action(
+                #action, confidence, exploration = self.agent.decide_action(
+                action, exploration = self.agent.decide_action(
                     self.policy_network, self.sample, epsilon)
 
                 # 결정한 행동을 수행하고 즉시 보상과 지연 보상 획득
-                immediate_reward, delayed_reward = self.agent.act(action, confidence)
+                #immediate_reward, delayed_reward = self.agent.act(action, confidence)
+                immediate_reward, delayed_reward = self.agent.act(action)
 
                 # 행동 및 행동에 대한 결과를 기억
                 memory_sample.append(next_sample)
@@ -181,15 +183,16 @@ class PolicyLearner:
             # 에포크 관련 정보 로그 기록
             if pos_learning_cnt + neg_learning_cnt > 0:
                 loss /= pos_learning_cnt + neg_learning_cnt
-            logger.info("[Epoch %s/%s]\tEpsilon:%.4f\t#Expl.:%d/%d\t"
-                        "#Buy:%d\t#Sell:%d\t#Hold:%d\t"
-                        "#Stocks:%d\tPV:KRW%d\t"
-                        "POS:%s\tNEG:%s\tLoss:%10.6f" % (
+            logger.info("[Epoch {}/{}] Epsilon:{:.4f} #Expl.:{:.0f}/{:.0f}  "
+                        "#Buy:{:.0f} #Sell:{:.0f} #Hold:{:.0f}  "
+                        "#Stocks:{:.0f} PV:KRW{:.0f} "
+                        "POS:{} NEG:{} Loss:{:10.6f} BuyCharge:{:.0f} "
+                        "SellCharge:{:.0f} Tax:{:.0f}".format(
                             epoch_str, num_epoches, epsilon, exploration_cnt, itr_cnt,
                             self.agent.num_buy, self.agent.num_sell, self.agent.num_hold,
-                            self.agent.num_stocks,
-                            self.agent.portfolio_value,
-                            pos_learning_cnt, neg_learning_cnt, loss))
+                            self.agent.num_stocks,self.agent.portfolio_value, pos_learning_cnt,
+                            neg_learning_cnt, loss, self.agent.buy_charge, self.agent.sell_charge,
+                            self.agent.sell_tax))
 
             # 학습 관련 정보 갱신
             max_portfolio_value = max(
@@ -202,14 +205,17 @@ class PolicyLearner:
 
     def _get_batch(self, memory, batch_size, discount_factor, delayed_reward):
         x = np.zeros((batch_size, 1, self.num_features))
-        y = np.full((batch_size, self.agent.NUM_ACTIONS), 0.5)
+        #y = np.full((batch_size, self.agent.NUM_ACTIONS), 0.5)
+        y = np.zeros((batch_size, self.agent.NUM_ACTIONS))
 
         for i, (sample, action, reward) in enumerate(
                 reversed(memory[-batch_size:])):
             x[i] = np.array(sample).reshape((-1, 1, self.num_features))
             y[i, action] = (delayed_reward + 1) / 2
-            if discount_factor > 0:
-                y[i, action] *= discount_factor ** i
+            if y[i, action] not in [0, 1]:
+                print("invalid y[i,action]=", y[i, action])
+            # if discount_factor > 0:
+            #     y[i, action] *= discount_factor ** i
         return x, y
 
     def _build_sample(self):
@@ -221,8 +227,10 @@ class PolicyLearner:
             return self.sample
         return None
 
-    def trade(self, model_path=None, balance=2000000):
+    def trade(self, model_path=None, balance=0, num_epoches=1,max_memory=0,
+                       discount_factor=0, start_epsilon=0):
         if model_path is None:
             return
         self.policy_network.load_model(model_path=model_path)
-        self.fit(balance=balance, num_epoches=1, learning=False)
+        self.fit(balance=balance, num_epoches=1, max_memory=max_memory,
+                   discount_factor=discount_factor, start_epsilon= start_epsilon, learning=False)

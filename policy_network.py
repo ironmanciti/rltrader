@@ -1,8 +1,8 @@
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Activation, LSTM, Dense, BatchNormalization
+from keras.optimizers import Adam
 from keras.optimizers import sgd
-
 
 class PolicyNetwork:
     def __init__(self, input_dim=0, output_dim=0, lr=0.01):
@@ -12,17 +12,18 @@ class PolicyNetwork:
         # LSTM 신경망
         self.model = Sequential()
 
-        self.model.add(LSTM(256, input_shape=(1, input_dim),
-                            return_sequences=True, stateful=False, dropout=0.5))
+        self.model.add(LSTM(512, input_shape=(1, input_dim),
+                            return_sequences=True, stateful=False, dropout=0.2))
         self.model.add(BatchNormalization())
-        self.model.add(LSTM(256, return_sequences=True, stateful=False, dropout=0.5))
+        self.model.add(LSTM(256, return_sequences=True, stateful=False, dropout=0.2))
         self.model.add(BatchNormalization())
-        self.model.add(LSTM(256, return_sequences=False, stateful=False, dropout=0.5))
+        self.model.add(LSTM(128, return_sequences=False, stateful=False, dropout=0.2))
         self.model.add(BatchNormalization())
         self.model.add(Dense(output_dim))
-        self.model.add(Activation('sigmoid'))
-
-        self.model.compile(optimizer=sgd(lr=lr), loss='mse')
+        #self.model.add(Activation('sigmoid'))
+        self.model.add(Activation('softmax'))
+        self.model.compile(optimizer=Adam(lr=lr), loss='categorical_crossentropy')
+        # self.model.compile(optimizer=sgd(lr=lr), loss='mse')
         self.prob = None
 
     def reset(self):

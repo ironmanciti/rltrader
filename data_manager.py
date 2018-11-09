@@ -33,10 +33,11 @@ def preprocess_close_volume(data, windows):
 
 def preprocess_inst_frgn(data, windows):
     prep_data = data
-    prep_data['inst'] = prep_data['inst'] / prep_data['inst'].sum()
-    prep_data['frgn'] = prep_data['frgn'] / prep_data['frgn'].sum()
+    prep_data['inst'] = prep_data['inst'].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    prep_data['frgn'] = prep_data['frgn'].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
     return prep_data
 
+# 전처리된 data 에 stock/market+전일종가비율/저가종가비율/종가전일종가비율/거래량전일거래량비율 column 생성
 def build_training_data_close_volume_ratio(prep_data, prefix, windows):
     training_data = prep_data
 
@@ -59,14 +60,14 @@ def build_training_data_close_volume_ratio(prep_data, prefix, windows):
         (training_data['volume'][1:].values - training_data['volume'][:-1].values) / \
         training_data['volume'][:-1]\
             .replace(to_replace=0, method='ffill') \
-            .replace(to_replace=0, method='bfill').values
+            .replace(to_replace=0, method='bfill').values     # 거래량이 0 이면 무한대 비울이 나오므로 다른 값으로 채워줌
 
     for window in windows:
         training_data[prefix+'close_ma%d_ratio' % window] = \
             (training_data['close'] - training_data['close_ma%d' % window]) / \
-            training_data['close_ma%d' % window]
+            training_data['close_ma%d' % window]              # 이동평균종가비율
         training_data[prefix+'volume_ma%d_ratio' % window] = \
             (training_data['volume'] - training_data['volume_ma%d' % window]) / \
-            training_data['volume_ma%d' % window]
+            training_data['volume_ma%d' % window]             # 이동평균거래량비율
 
     return training_data

@@ -8,94 +8,80 @@ from settings import *
 import data_manager
 from agent import DQNAgent
 from environment import Environment
-from policy_learner import PolicyLearner
+from keras import backend as K
+K.clear_session()
 
-WINDOWS = [5, 10, 20, 60, 120]
+# model save path
+saved_models = []
+model_dir = os.path.join(BASE_DIR, 'models/%s' % STOCK_CODE)
+if not os.path.isdir(model_dir):
+    os.makedirs(model_dir)
+model_path = os.path.join(model_dir, 'model_%s.h5' % STOCK_CODE)
 
-def prepare_data(stock_code, market_code, start_date, end_date):
-    # 종목 데이터 준비
-    chart_data = data_manager.load_chart_data(stock_code)
-    prep_data = data_manager.preprocess_close_volume(chart_data, WINDOWS)
-    data1 = data_manager.build_training_data_close_volume_ratio(prep_data,'stock', WINDOWS)
-    data1 = data_manager.preprocess_inst_frgn(data1, WINDOWS)
-     # market 데이터 준비
-    market_data = data_manager.load_market_data(market_code)
-    prep_data = data_manager.preprocess_close_volume(market_data, WINDOWS)
-    data2 = data_manager.build_training_data_close_volume_ratio(prep_data,'market', WINDOWS)
-    # 종목 + market data merge
-    data = pd.merge(data1, data2, on='date', suffixes=('', '_y'))
-    # 기간 필터링
-    data = data[(data['date'] >= start_date) & (data['date'] <= end_date)]
-    data = data.dropna()
-    # 차트 데이터 분리
-    features_chart_data = ['date', 'open', 'high', 'low', 'close', 'volume']
-    chart_data = data[features_chart_data]
-    # 추가 feature 데이터 분리
-    drop_features = ['date', 'open', 'high', 'low', 'close', 'volume',
-                     'open_y', 'high_y', 'low_y', 'close_y', 'volume_y']
-    for window in WINDOWS:
-        drop_features.append('close_ma{}'.format(window))
-        drop_features.append('volume_ma{}'.format(window))
-        drop_features.append('close_ma{}_y'.format(window))
-        drop_features.append('volume_ma{}_y'.format(window))
+def update_delayed_reward(episode_buffer, last_reward):
+    rewarded_buffer = []
 
-    training_data = data.drop(columns=drop_features)
+    for state, action, reward, next_state, done in episode_buffer:
+        if reward == 0:
+            reward = last_reward
+        rewarded_buffer.append((state, action, reward, next_state, done))
 
-    return chart_data, training_data
-
-def update_replay_buffer(replay_buffer, episode_buffer, reward):
-
-    episode_rewarded = []
-
-    for state, action, next_state, done in episode_buffer:
-        episode_rewarded.append((state, action, reward, next_state, done))
-
-    replay_buffer.append(episode_rewarded)
-
-    if len(replay_buffer) > REPLAY_MEMORY:
-        replay_buffer.popleft()
-
+    return rewarded_buffer
 
 # 강화학습 시작
-chart_data, training_data = \
-        prepare_data(STOCK_CODE, MARKET_CODE, TRAINING_START_DATE, TRAINING_END_DATE)
-
-env = Environment(training_data)
-
-STATE_SIZE = len(training_data.columns) + 4
-
-replay_buffer = deque()
-
-agent = DQNAgent(env, STATE_SIZE)
-
-# initialize copy q_net --> target_net
-agent.target_model.set_weights(agent.model.get_weights())
-
-last_saved_model = 'No model saved'
-saved_models = []
-
 if LEARNING:
+    chart_data, training_data = \
+            data_manager.prepare_data(STOCK_CODE, MARKET_CODE, TRAINING_START_DATE, TRAINING_END_DATE)
+
+    env = Environment(chart_data, training_data)
+
+    STATE_SIZE = len(training_data.columns) + 4
+
+    replay_buffer = deque()
+
+    agent = DQNAgent(env, STATE_SIZE)
+
+    # initialize copy q_net --> target_net
+    agent.target_model.set_weights(agent.model.get_weights())
+
     win_cnt = 0
     lose_cnt = 0
     for episode in range(MAX_EPISODES):
-        e = 1. / (episode / 10 + 1)
+        e = 1. / (episode / 20 + 1)
         done = False
         state = env.reset()
-        state = np.reshape(state, [1, 1, STATE_SIZE])
+        state = np.reshape(state, [state.shape[0], 1, STATE_SIZE])
 
         episode_buffer = []
 
         while not done:
+
             if np.random.rand(1) < e:
                 action = random.randrange(ACTION_SIZE)
+                print("random action : {}".format(action))
             else:
-                action = np.argmax(agent.model.predict(state)[0])
+                predicted = np.sum(agent.model.predict(state), axis=0)
+                action = np.argmax(predicted)
+                print("action = {}, predict = {} / {} / {}"
+                        .format(action, predicted[0], predicted[1], predicted[2]))
 
-            next_state, reward, done = env.step(action)
-            next_state = np.reshape(next_state, [1, 1, STATE_SIZE])
+            if action == BUY:        # 0
+                agent.num_buy  += 1   # 매수 횟수
+            elif action == SELL:     # 1
+                agent.num_sell += 1  # 매도 횟수
+            else:
+                agent.num_hold += 1  # 홀딩 횟수
 
-            if done:
-                update_replay_buffer(replay_buffer, episode_buffer, reward)
+            next_state, reward, done, _ = env.step(action)
+            next_state = np.reshape(next_state, [next_state.shape[0], 1, STATE_SIZE])
+
+            if done or len(episode_buffer) > EPISODE_BUFFER_SIZE:
+
+                if len(episode_buffer) > 0:
+                    rewarded_buffer = update_delayed_reward(episode_buffer, reward)
+                    replay_buffer.append(rewarded_buffer)
+                    if len(replay_buffer) > REPLAY_MEMORY:
+                        replay_buffer.popleft()
 
                 if episode > MAX_EPISODES / 2:
                     if reward >= 1:
@@ -105,42 +91,65 @@ if LEARNING:
 
                 print("episode: {}/{}, reward = {}, episode_buffer={}, win= {}, lose= {}".
                         format(episode, MAX_EPISODES, reward, len(episode_buffer), win_cnt, lose_cnt))
+                print("total buy/sell/hold: {} / {} / {}".format(agent.num_buy,agent.num_sell,agent.num_hold))
             else:
-                episode_buffer.append((state, action, next_state, done))
+                episode_buffer.append((state, action, reward, next_state, done))
 
             state = next_state
 
         if episode % 10 == 1:
-            for _ in range(50):
+            for _ in range(10):
                 agent.replay(replay_buffer, BATCH_SIZE)
             agent.target_model.set_weights(agent.model.get_weights())
 
-    #
-    # policy_learner = PolicyLearner(
-    #     stock_code=STOCK_CODE, chart_data=chart_data, training_data=training_data,
-    #     min_trading_unit=MIN_TRADING_UNIT, max_trading_unit=MAX_TRADING_UNIT,
-    #     delayed_reward_threshold=DELAYED_REWARD_THRESHOLD, lr=LEARNING_RATE)
-    #
-    # policy_learner.fit(balance=INITIAL_BALANCE, num_epoches=NUM_EPOCHS,max_memory=MAX_MEMORY,
-    #                 discount_factor=DISCOUNT_FACTOR, start_epsilon=START_EPSILON, learning=LEARNING_RATE)
-    #
-    # # 정책 신경망을 파일로 저장
-    # model_dir = os.path.join(settings.BASE_DIR, 'models/%s' % STOCK_CODE)
-    # if not os.path.isdir(model_dir):
-    #     os.makedirs(model_dir)
-    # #model_path = os.path.join(model_dir, 'model_%s.h5' % timestr)
-    # model_path = os.path.join(model_dir, 'model_%s.h5' % STOCK_CODE)
-    # policy_learner.policy_network.save_model(model_path)
+    # 모델을 파일로 저장
+    agent.model.save_weights(model_path, overwrite=True)
 
-# if  SIMULATION:
-#
-#     policy_learner = PolicyLearner(
-#         stock_code=STOCK_CODE, chart_data=chart_data, training_data=training_data,
-#         min_trading_unit=MIN_TRADING_UNIT, max_trading_unit=MAX_TRADING_UNIT)
-#
-#     policy_learner.trade(balance=INITIAL_BALANCE, num_epoches=NUM_EPOCHS,max_memory=MAX_MEMORY,
-#                        discount_factor=DISCOUNT_FACTOR, start_epsilon=START_EPSILON,
-#                          model_path=os.path.join(
-#                              settings.BASE_DIR,
-#                              'models/{}/model_{}.h5'.format(STOCK_CODE, STOCK_CODE)))
-#     #                        'models/{}/model_{}.h5'.format(STOCK_CODE, model_ver)))
+if SIMULATION:
+    chart_data, training_data = \
+            data_manager.prepare_data(STOCK_CODE, MARKET_CODE, SIMULATION_START_DATE, SIMULATION_END_DATE)
+
+    env = Environment(chart_data, training_data)
+
+    STATE_SIZE = len(training_data.columns) + 4
+
+    agent = DQNAgent(env, STATE_SIZE)
+    agent.model.load_weights(model_path)
+
+    win_cnt = 0
+    lose_cnt = 0
+    done = False
+
+    while True:
+
+        state = env.reset()
+
+        if env.eof == True:
+            break
+
+        while not done:
+            state = np.reshape(state, [state.shape[0], 1, STATE_SIZE])
+            predicted = np.sum(agent.model.predict(state), axis=0)[0]
+            action = np.argmax(predicted)
+
+            if action == BUY:        # 0
+                agent.num_buy  += 1   # 매수 횟수
+            elif action == SELL:     # 1
+                agent.num_sell += 1  # 매도 횟수
+            else:
+                agent.num_hold += 1  # 홀딩 횟수
+
+            next_state, reward, done, profitloss = env.step(action)
+            next_state = np.reshape(next_state, [next_state.shape[0], 1, STATE_SIZE])
+
+            agent.profitloss += profitloss
+
+            state = next_state
+
+        if reward > 0:
+            win_cnt += 1
+        elif reward < 0:
+            lose_cnt += 1
+
+        print("total buy/sell/hold: {}/{}/{}, win= {}, lose= {}".
+                format(agent.num_buy, agent.num_sell, agent.num_hold, win_cnt, lose_cnt))

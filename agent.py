@@ -2,7 +2,7 @@ import numpy as np
 from settings import *
 import random
 from keras.models import Sequential
-from keras.layers import Activation, Dense, LSTM
+from keras.layers import Activation, Dense, LSTM, BatchNormalization
 from keras.optimizers import Adam
 
 class DQNAgent:
@@ -31,9 +31,10 @@ class DQNAgent:
         # self.portfolio_value = 0  # balance + num_stocks * {현재 주식 가격} --> 포트폴리오 가치
         # self.base_portfolio_value = 0  # 직전 학습 시점의 PV (기준 포트폴리오)
         # self.base_stock_price = 0      # 직전 학습 시점의 주가
-        # self.num_buy = 0  # 매수 횟수
-        # self.num_sell = 0  # 매도 횟수
-        # self.num_hold = 0  # 홀딩 횟수
+        self.num_buy = 0  # 매수 횟수
+        self.num_sell = 0  # 매도 횟수
+        self.num_hold = 0  # 홀딩 횟수
+        self.profitloss = 0  # 누적 손익
         # self.immediate_reward = 0  # 즉시 보상 (행동을 수행한 시점에 수익발행 +1, 아니면 -1)
         # self.buy_charge = 0   # 매수 수수료
         # self.sell_charge = 0  # 매도 수수료
@@ -43,22 +44,17 @@ class DQNAgent:
         # self.ratio_hold = 0  # 주식 보유 비율 (현재보유하고있는 주식수/최대로 보유할수 있는 주식수)
         # self.ratio_portfolio_value = 0  # 포트폴리오 가치 비율 (현재 PV/직전지연보상시점의 PV)
     #
-    # def _build_model(self):
-    #     model = Sequential()
-    #     model.add(Dense(128, input_dim=self.state_size))
-    #     model.add(Dense(64, activation='relu'))
-    #     model.add(Dense(32, activation='relu'))
-    #     model.add(Dense(16, activation='relu'))
-    #     model.add(Dense(ACTION_SIZE, activation='linear'))
-    #     model.compile(optimizer=Adam(lr=LEARNING_RATE), loss='mse')
-    #     return model
 
     def _build_model(self):
         model = Sequential()
-        model.add(LSTM(128, input_shape=(1, self.state_size),
+        model.add(LSTM(128, input_shape=(None, self.state_size),
                 return_sequences=False, dropout=0.2))
-        model.add(Dense(32, activation='relu'))
+        # model.add(BatchNormalization())
+        # model.add(LSTM(64, return_sequences=False, dropout=0.2))
+        model.add(BatchNormalization())
+        model.add(Dense(32))
         model.add(Dense(ACTION_SIZE, activation='linear'))
+
         model.compile(optimizer=Adam(lr=LEARNING_RATE), loss='mse')
         return model
 
@@ -70,18 +66,20 @@ class DQNAgent:
         minibatch = random.sample(replay_buffer, batch_size)
 
         for  episode_rewarded in minibatch:
+            y = np.zeros((len(episode_rewarded), ACTION_SIZE))
 
-            for state, action, reward, next_state, done in episode_rewarded:
+            for (state, action, reward, next_state, done) in episode_rewarded:
+
+                state = state.reshape(state.shape[1], state.shape[0], state.shape[2])
 
                 target_f = self.target_model.predict(state)
 
                 if done:
-                    target_f[0][action] = reward
+                    target_f[:, action] = reward
                 else:
-                    target_f[0][action] = (reward + self.gamma *
-                                np.amax(self.target_model.predict(next_state)[0]))
+                   target_f[:, action] = (reward + self.gamma *
+                               np.amax(self.target_model.predict(next_state)[:, action]))
 
-                state = state.reshape((-1, 1, self.state_size))
                 self.model.fit(state, target_f, epochs=1, verbose=0)
 
     # def reset(self):   # class 속성 초기화 (매 epoch 마다)

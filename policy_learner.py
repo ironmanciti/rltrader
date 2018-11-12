@@ -3,7 +3,6 @@ import locale
 import logging
 import numpy as np
 import settings
-from policy_network import PolicyNetwork
 from visualizer import Visualizer
 
 

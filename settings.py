@@ -14,8 +14,18 @@ pd.set_option('display.width', 1000)
 # Settings for Project
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-STOCK_CODE = '005930'  # '005380'-현대차, '005930'-삼성전자, '051910'-LG화학, '035420'-NAVER, '030200'-KT, '000660'-SK하이닉스
+# WINDOWS = [5, 10, 20, 60, 120]
+WINDOWS = [5, 10, 20]
+
+# '005380'-현대차, '005930'-삼성전자, '051910'-LG화학, '035420'-NAVER, '030200'-KT, '000660'-SK하이닉스
+STOCK_CODE = '035420'
 MARKET_CODE = '001'    # '001'-KOSPI
+
+TRAINING_START_DATE   = '2001-01-01'
+TRAINING_END_DATE     = '2016-12-31'
+SIMULATION_START_DATE = '2017-01-01'
+SIMULATION_END_DATE   = '2017-12-31'
+
 LEARNING = True
 SIMULATION = True
 
@@ -26,10 +36,9 @@ SIMULATION = True
 # 행동
 BUY  = 0  # 매수
 SELL = 1  # 매도
-# HOLD = 2  # 홀딩 (관망)
-# ACTIONS = [BUY, SELL, HOLD]
-ACTIONS = [BUY, SELL]
-ACTION_SIZE = len(ACTIONS)  # 인공 신경망 출력값의 개수 (3)
+HOLD = 2  # 홀딩
+ACTIONS = [BUY, SELL, HOLD]
+ACTION_SIZE = len(ACTIONS)       # 인공 신경망 출력값의 개수
 
 # INITIAL_BALANCE = int(('10,000,000').replace(',',''))
 # MIN_TRADING_UNIT = 1
@@ -37,39 +46,21 @@ ACTION_SIZE = len(ACTIONS)  # 인공 신경망 출력값의 개수 (3)
 
 REWARD_THRESHOLD = 0.05   # 5%  초과면 보상 or penalty
 
-MAX_EPISODES = 3000
-BATCH_SIZE   = 10
+MAX_EPISODES = 1000
+BATCH_SIZE   = 10         # 적절한 value ?
 
-REPLAY_MEMORY = 5000
+REPLAY_MEMORY = 500       # 적절한 value ?
+EPISODE_BUFFER_SIZE = 30  # 적절한 value ?
 LEARNING_RATE = 0.01
 
-GAMMA = 0.97
-EPSILON = 1.0    #100% 로 시작
+GAMMA = 0.95             # 적절한 value ?
+EPSILON = 1.0            #100% 로 시작
 EPSILON_DECAY = 0.995
-
-TRAINING_START_DATE   = '2016-01-01'
-TRAINING_END_DATE     = '2016-12-31'
-SIMULATION_START_DATE = '2017-01-01'
-SIMULATION_END_DATE   = '2017-12-31'
-
-# # Settings for Templates
-# TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-#
-#
-# # Settings for Static
-# STATIC_DIR = os.path.join(BASE_DIR, "static")
-# STATIC_URL = "/static/"
-#
-#
-# # Settings for Data
-# DATA_DIR = os.path.join(BASE_DIR, "database")
-
 
 # Date Time Format
 timestr = None
 FORMAT_DATE = "%Y%m%d"
 FORMAT_DATETIME = "%Y%m%d%H%M%S"
-
 
 # 로케일 설정
 if 'Darwin' in platform.system():
@@ -77,13 +68,11 @@ if 'Darwin' in platform.system():
 elif 'Windows' in platform.system():
     locale.setlocale(locale.LC_ALL, '')
 
-
 # Settings on Logging
 def get_today_str():
     today = datetime.datetime.combine(datetime.date.today(), datetime.datetime.min.time())
     today_str = today.strftime('%Y%m%d')
     return today_str
-
 
 def get_time_str():
     global timestr

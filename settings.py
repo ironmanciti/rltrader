@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WINDOWS = [5, 10, 20]
 
 # '005380'-현대차, '005930'-삼성전자, '051910'-LG화학, '035420'-NAVER, '030200'-KT, '000660'-SK하이닉스
-STOCK_CODE = '035420'
+STOCK_CODE = '051910'
 MARKET_CODE = '001'    # '001'-KOSPI
 
 TRAINING_START_DATE   = '2001-01-01'
@@ -27,6 +27,8 @@ SIMULATION_START_DATE = '2017-01-01'
 SIMULATION_END_DATE   = '2017-12-31'
 
 LEARNING = True
+MODEL_NAME = "model_051910_2018-11-13.h5"
+# MODEL_NAME = None
 SIMULATION = True
 
 # # 매매 수수료 및 세금
@@ -44,13 +46,13 @@ ACTION_SIZE = len(ACTIONS)       # 인공 신경망 출력값의 개수
 # MIN_TRADING_UNIT = 1
 # MAX_TRADING_UNIT = 1
 
-REWARD_THRESHOLD = 0.05   # 5%  초과면 보상 or penalty
+REWARD_THRESHOLD = 0.02   # 초과면 보상 or penalty
 
 MAX_EPISODES = 1000
 BATCH_SIZE   = 10         # 적절한 value ?
 
-REPLAY_MEMORY = 500       # 적절한 value ?
-EPISODE_BUFFER_SIZE = 30  # 적절한 value ?
+REPLAY_MEMORY = 1000       # 적절한 value ?
+EPISODE_BUFFER_SIZE = 20  # 적절한 value ?
 LEARNING_RATE = 0.01
 
 GAMMA = 0.95             # 적절한 value ?

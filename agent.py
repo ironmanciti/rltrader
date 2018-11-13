@@ -65,20 +65,22 @@ class DQNAgent:
 
         minibatch = random.sample(replay_buffer, batch_size)
 
-        for  episode_rewarded in minibatch:
+        for episode_rewarded in minibatch:
             y = np.zeros((len(episode_rewarded), ACTION_SIZE))
 
             for (state, action, reward, next_state, done) in episode_rewarded:
-
-                state = state.reshape(state.shape[1], state.shape[0], state.shape[2])
 
                 target_f = self.target_model.predict(state)
 
                 if done:
                     target_f[:, action] = reward
+                    if target_f.shape[0] != 1:
+                        print("Inavlid target_f shape : ", target_f.shape)
                 else:
-                   target_f[:, action] = (reward + self.gamma *
+                    target_f[:, action] = (reward + self.gamma * \
                                np.amax(self.target_model.predict(next_state)[:, action]))
+                    if target_f.shape[0] != 1:
+                       print("Inavlid target_f shape : ", target_f.shape)
 
                 self.model.fit(state, target_f, epochs=1, verbose=0)
 

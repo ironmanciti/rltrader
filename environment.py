@@ -22,9 +22,13 @@ class Environment:
         self.eof        = False
         self.state      = None
 
-    def reset(self):
-        if LEARNING:
+    def reset(self, run_mode):
+        if run_mode == "LEARNING":
             self.idx = np.random.randint(len(self.scaled_data)) - EPISODE_BUFFER_SIZE
+        elif run_mode == "SIMULATION":
+            self.idx = +1
+        else:
+            return
         self.row = self.scaled_data.iloc[self.idx].values
         self.chart = self.chart_data.iloc[self.idx].values
         self.buy_price  = 0
@@ -39,7 +43,7 @@ class Environment:
 
         state_buffer = []
         for i in range(1, EPISODE_BUFFER_SIZE):
-            self.idx += i
+            self.idx += 1
             if self.idx >= len(self.scaled_data):
                 pass
             else:
@@ -85,18 +89,16 @@ class Environment:
 
                 if self.profitloss >= self.sell_price * REWARD_THRESHOLD:
                     print("win - " + str)
-                    self.reward = +2
+                    self.reward = +10
                 elif self.profitloss > 0 and \
                      (self.profitloss < self.sell_price * REWARD_THRESHOLD):
                     print("win - " + str)
-                    self.reward = +1
+                    self.reward = +5
                 else:
                     print("lose - " + str)
-                    self.reward = -2
+                    self.reward = -5
 
                 self.done   = True
-                self.sell_price = 0
-                self.short_position = False
 
         if action == SELL:
 
@@ -116,33 +118,32 @@ class Environment:
 
                 if self.profitloss >= self.buy_price * REWARD_THRESHOLD:
                     print("win - " + str)
-                    self.reward = +2
+                    self.reward = +10
                 elif self.profitloss > 0 and \
                     (self.profitloss < self.buy_price * REWARD_THRESHOLD):
-                    self.reward = +1
+                    self.reward = +5
                     print("win - " + str)
                 else:
                     print("lose - " + str)
-                    self.reward = -2
+                    self.reward = -5
 
                 self.done   = True
-                self.buy_price  = 0
-                self.long_position  = False
 
         if action == HOLD:
-            # REWARD_THRESHOLD +, - 이내에서 HOLD 하면 reward +1, 아니면 -1
+            # REWARD_THRESHOLD +, - 이내에서 HOLD 하면 reward +1, 아니면 -5
             if self.long_position:
                 if (self.chart[self.PRICE_IDX] < self.buy_price * (1 + REWARD_THRESHOLD)) and \
                    (self.chart[self.PRICE_IDX] > self.buy_price * (1 - REWARD_THRESHOLD)):
                    self.reward = +1
                 else:
-                   self.reward = -1
+                   self.reward = -5
+
             if self.short_position:
                 if (self.chart[self.PRICE_IDX] > self.sell_price * (1 - REWARD_THRESHOLD)) and \
                    (self.chart[self.PRICE_IDX] < self.sell_price * (1 + REWARD_THRESHOLD)):
                    self.reward = +1
                 else:
-                   self.reward = -1
+                   self.reward = -5
 
         next_state = np.append(self.row, [self.buy_price, self.long_position,\
                           self.sell_price, self.short_position])

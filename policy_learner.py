@@ -3,9 +3,6 @@ import locale
 import logging
 import numpy as np
 import settings
-from environment import Environment
-from agent import Agent
-from policy_network import PolicyNetwork
 from visualizer import Visualizer
 
 
@@ -20,12 +17,16 @@ class PolicyLearner:
                  delayed_reward_threshold=0, lr=0):
         self.stock_code = stock_code  # 종목코드
         self.chart_data = chart_data
+<<<<<<< HEAD
         self.environment = Environment(chart_data)  # 환경 객체 (차트데이터를 순서대로 읽으면서 주가, 거래량 제공)
         # 에이전트 객체
         self.agent = Agent(self.environment,
                            min_trading_unit=min_trading_unit,
                            max_trading_unit=max_trading_unit,
                            delayed_reward_threshold=delayed_reward_threshold)
+=======
+
+>>>>>>> 6ad1fe99b5f6f32b80563112803f402ef76f9fa6
         self.training_data = training_data  # 학습 데이터
         self.sample = None
         self.training_data_idx = -1

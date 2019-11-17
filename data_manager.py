@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
+from settings import *
 
 engine = create_engine("mysql+pymysql://yjoh:1234@localhost/stockdb?charset=utf8",convert_unicode=True)
 
@@ -71,3 +72,40 @@ def build_training_data_close_volume_ratio(prep_data, prefix, windows):
             training_data['volume_ma%d' % window]             # 이동평균거래량비율
 
     return training_data
+
+def prepare_data(stock_code, market_code, start_date, end_date):
+    # 종목 데이터 준비
+    chart_data = load_chart_data(stock_code)
+    prep_data = preprocess_close_volume(chart_data, WINDOWS)
+    data = build_training_data_close_volume_ratio(prep_data,'stock', WINDOWS)
+
+    # data1 = preprocess_inst_frgn(data1, WINDOWS)
+
+     # market 데이터 준비
+    # market_data = load_market_data(market_code)
+    # prep_data = preprocess_close_volume(market_data, WINDOWS)
+    # data2 = build_training_data_close_volume_ratio(prep_data,'market', WINDOWS)
+    # 종목 + market data merge
+    # data = pd.merge(data, data2, on='date', suffixes=('', '_y'))
+    # 기간 필터링
+    data = data[(data['date'] >= start_date) & (data['date'] <= end_date)]
+    data = data.dropna()
+    # 차트 데이터 분리
+    features_chart_data = ['date', 'open', 'high', 'low', 'close', 'volume']
+    chart_data = data[features_chart_data]
+    # 추가 feature 데이터 분리
+    # drop_features = ['date', 'open', 'high', 'low', 'volume',
+    #                  'open_y', 'high_y', 'low_y', 'close_y', 'volume_y']
+    drop_features = ['date', 'open', 'high', 'low', 'volume', 'credit_ratio', 'frgn', 'inst']
+    for window in WINDOWS:
+        drop_features.append('close_ma{}'.format(window))
+        drop_features.append('volume_ma{}'.format(window))
+        # drop_features.append('close_ma{}_y'.format(window))
+        # drop_features.append('volume_ma{}_y'.format(window))
+
+    training_data = data.drop(columns=drop_features)
+    # scaling
+    training_data['close'] -= training_data['close'].min()
+    training_data['close'] /= training_data['close'].max()
+
+    return chart_data, training_data

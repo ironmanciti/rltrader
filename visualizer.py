@@ -10,7 +10,7 @@ class Visualizer:
         self.axes = None  # 차트를 그리기 위한 Matplotlib의 Axes 클래스 객체
 
     def prepare(self, chart_data):
-        # 캔버스를 초기화하고 4개의 차트를 그릴 준비
+        # 캔버스를 초기화하고 4개의 차트를 그릴 준비 (일봉차트, 보유주식수, 정책신경망출력&탐험, PV)
         self.fig, self.axes = plt.subplots(nrows=4, ncols=1, facecolor='w', sharex=True)
         for ax in self.axes:
             # 보기 어려운 과학적 표기 비활성화
@@ -84,7 +84,7 @@ class Visualizer:
         plt.tight_layout()
         plt.subplots_adjust(top=.9)
 
-    def clear(self, xlim):
+    def clear(self, xlim):      # figure 초기화 & x, y 축 설정
         for ax in self.axes[1:]:
             ax.cla()  # 그린 차트 지우기
             ax.relim()  # limit를 초기화

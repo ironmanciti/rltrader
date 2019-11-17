@@ -40,14 +40,14 @@ def prepare_data(stock_code, market_code, start_date, end_date):
 
 if __name__ == '__main__':
 
-    STOCK_CODE = '000660'  # '005380'-현대차, '005930'-삼성전자, '051910'-LG화학, '035420'-NAVER, '030200'-KT, '000660'-SK하이닉스
+    STOCK_CODE = '035420'  # '005380'-현대차, '005930'-삼성전자, '051910'-LG화학, '035420'-NAVER, '030200'-KT, '000660'-SK하이닉스
     MARKET_CODE = '001'    # '001'-KOSPI
     LEARNING = True
     SIMULATION = True
     INITIAL_BALANCE = int(('10,000,000').replace(',',''))
-    MIN_TRADING_UNIT = 10  #50
-    MAX_TRADING_UNIT = 10 #100
-    NUM_EPOCHS = 100
+    MIN_TRADING_UNIT = 1  #50
+    MAX_TRADING_UNIT = 2 #100
+    NUM_EPOCHS = 800
     MAX_MEMORY = 60
     START_EPSILON = 0.5   # 50%
     DELAYED_REWARD_THRESHOLD = 0.05   # 5%
@@ -79,8 +79,9 @@ if __name__ == '__main__':
             stock_code=STOCK_CODE, chart_data=chart_data, training_data=data,
             min_trading_unit=MIN_TRADING_UNIT, max_trading_unit=MAX_TRADING_UNIT,
             delayed_reward_threshold=DELAYED_REWARD_THRESHOLD, lr=LEARNING_RATE)
+            
         policy_learner.fit(balance=INITIAL_BALANCE, num_epoches=NUM_EPOCHS,max_memory=MAX_MEMORY,
-                           discount_factor=DISCOUNT_FACTOR, start_epsilon=START_EPSILON)
+                        discount_factor=DISCOUNT_FACTOR, start_epsilon=START_EPSILON, learning=LEARNING_RATE)
 
         # 정책 신경망을 파일로 저장
         model_dir = os.path.join(settings.BASE_DIR, 'models/%s' % STOCK_CODE)
@@ -96,6 +97,7 @@ if __name__ == '__main__':
         policy_learner = PolicyLearner(
             stock_code=STOCK_CODE, chart_data=chart_data, training_data=data,
             min_trading_unit=MIN_TRADING_UNIT, max_trading_unit=MAX_TRADING_UNIT)
+
         policy_learner.trade(balance=INITIAL_BALANCE, num_epoches=NUM_EPOCHS,max_memory=MAX_MEMORY,
                            discount_factor=DISCOUNT_FACTOR, start_epsilon=START_EPSILON,
                              model_path=os.path.join(
